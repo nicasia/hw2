@@ -150,11 +150,11 @@ def test_paxos(sytem):
     for x in range(2):
         system.mailbox.send(random.randint(0, len(system.config.proposer_ids)-1),
                             ClientRequestMsg(None, "Query {}".format(x)))
-        # time.sleep(0.5)
+        #time.sleep(0.5)
 
 def test_paxos2():
     system.mailbox.send(0,ClientRequestMsg(None, "Query {}".format(0)))
-    # time.sleep(0.5)
+    time.sleep(2)
     system.mailbox.send(1,ClientRequestMsg(None, "Query {}".format(1)))
     time.sleep(0.5)
     system.mailbox.send(0,ClientRequestMsg(None, "Query {}".format(2)))
@@ -180,7 +180,7 @@ def test_multi_paxos():
 
 if __name__ == "__main__":
 	# test_multi_paxos()
-	system = System(SystemConfig(2, 3, 1))
+	system = System(SystemConfig(3,3,3))
 	#system = DebugSystem(SystemConfig(2, 3, 2, proposer_sequence_start=1,
 	#                             proposer_sequence_step=1))
 	#system = DebugSystem(SystemConfig(1, 3, 1))

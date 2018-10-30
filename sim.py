@@ -4,7 +4,7 @@ import queue
 from threading import Thread
 import time
 
-from __init__ import Proposer, Acceptor, Learner, BaseSystem
+from __init__ import Proposer, Learner, Acceptor, BaseSystem
 
 
 class Mailbox:
