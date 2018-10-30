@@ -17,7 +17,7 @@ class BaseSystem:
     class that lives someplace else.
     """
 
-	
+    
 class Agent:
     """
     A Paxos agent, meant to be subclassed for implementing the paxos roles.
@@ -33,6 +33,39 @@ class Agent:
         # Flag for any process threads to shutdown.
         self.stopping = False
 
+        ######## LIST OF ALL LOG VALUES #########
+        self.logged_values = [];
+
+
+        ######## PROPOSER #########
+        # Paxos Made Simple suggests that proposers in a system use a disjoint
+        # set of proposal numbers.  So, we start each Proposer's sequence
+        # number at its pid value (which is unique) and we increment by the
+        # number of proposers.
+        self.sequence = self.pid
+        # Step gets set when the process receives the system configuration
+        # message on startup.
+        self.sequence_step = None
+
+        # States for various instances of the algorithm, i.e. sequence numbers.
+        # This will itself contain dictionaries of states for the rounds of
+        # each proposal tried during an instance.
+        self.proposer_instances = {}
+        self.instance_sequence = 1
+        
+        ########## ACCEPTOR ###########
+        self.acceptor_instances = {}
+        
+        ######## LEARNER ###########
+        # Results stored by instance number.
+        self.results = {}
+        self.learner_instances = {}
+        
+        
+        
+        
+        
+        
     def run(self):
         """
         Loop forever, listening for and handling any messages sent to us.
@@ -76,9 +109,43 @@ class Agent:
             self.set_config(msg)
         if msg == 'quit':
             self.handle_quit()
+            
+        ######### PROPOSER ###########
+        if isinstance(msg, ClientRequestMsg):
+            self.handle_client_request(msg)
+        elif isinstance(msg, PrepareResponseMsg):
+            self.handle_prepare_response(msg)
+        elif isinstance(msg, AcceptResponseMsg):
+            self.handle_accept_response(msg)
+            
+            
+        ####### ACCEPTOR ###########
+        elif isinstance(msg, PrepareMsg):
+            self.handle_prepare(msg)
+        elif isinstance(msg, AcceptMsg):
+            self.handle_accept(msg)
+            
+        ######### LEARNER #############
+        elif isinstance(msg, AcceptResponseMsg):
+            self.handle_accept_response(msg)
+
 
     def set_config(self, config):
         self.config = config
+
+        """
+        Set this process's sequence step to the number of proposers.
+        """
+        if config.proposer_sequence_start:
+            self.sequence = config.proposer_sequence_start
+        if config.proposer_sequence_step:
+            self.sequence_step = config.proposer_sequence_step
+        else:
+            self.sequence_step = len(config.agent_ids)
+
+            
+            
+            
 
     def stop(self):
         """Stop any helper threads."""
@@ -90,66 +157,32 @@ class Agent:
         self.active = False
 
 
-
-
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-class Proposer(Agent):
-    def __init__(self, *args, **kwargs):
-        super(Proposer, self).__init__(*args, **kwargs)
-
-        # Paxos Made Simple suggests that proposers in a system use a disjoint
-        # set of proposal numbers.  So, we start each Proposer's sequence
-        # number at its pid value (which is unique) and we increment by the
-        # number of proposers.
-        self.sequence = self.pid
-        # Step gets set when the process receives the system configuration
-        # message on startup.
-        self.sequence_step = None
-
-        # States for various instances of the algorithm, i.e. sequence numbers.
-        # This will itself contain dictionaries of states for the rounds of
-        # each proposal tried during an instance.
-        self.instances = {}
-        self.instance_sequence = 1
-
-    def set_config(self, config):
+    ############ PROPOSER #################
+    def handle_client_request(self, msg, instance=None):
         """
-        Set this process's sequence step to the number of proposers.
+        Start a Paxos instance.
         """
-        super(Proposer, self).set_config(config)
-        if config.proposer_sequence_start:
-            self.sequence = config.proposer_sequence_start
-        if config.proposer_sequence_step:
-            self.sequence_step = config.proposer_sequence_step
-        else:
-            self.sequence_step = len(config.proposer_ids)
 
-        # instantiate analyzer if dynamic weights enabled after configuration
-        # self.analyzer = None
-        # if config.dynamic_weights:
-            # self.analyzer = Analyzer(config.acceptor_ids)
+        #NOW WE WANT TO CHECK WHETHER THE 
+        proposal = self.create_proposal(instance)
+        if proposal.instance not in self.proposer_instances:
+            self.proposer_instances[proposal.instance] = {}
+        if proposal.number not in self.proposer_instances[proposal.instance]:
+            self.proposer_instances[proposal.instance][proposal.number] = \
+                    BasicPaxosProposerProtocol(self, proposal)
+        self.proposer_instances[proposal.instance][proposal.number].request = msg.value
+        self.proposer_instances[proposal.instance][proposal.number].handle_client_request(proposal)
 
-    def handle_message(self, msg):
-        super(Proposer, self).handle_message(msg)
-        if isinstance(msg, ClientRequestMsg):
-            self.handle_client_request(msg)
-        elif isinstance(msg, PrepareResponseMsg):
-            self.handle_prepare_response(msg)
-        elif isinstance(msg, AcceptResponseMsg):
-            self.handle_accept_response(msg)
+    def handle_prepare_response(self, msg):
+        self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_prepare_response(msg)
+        
+    def handle_accept_response(self, msg):
+        self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_accept_response(msg)
+
 
     def create_proposal(self, instance=None):
+
+
         """
         Create a new proposal using this process's current proposal number
         sequence and instance number sequence.  If instance is given, then
@@ -164,94 +197,53 @@ class Proposer(Agent):
               .format(self.pid, self.sequence, instance_sequence))
         proposal = Proposal(self.sequence, instance_sequence, self.pid)
         self.sequence += self.sequence_step
+        
         # Only increment the instance sequence if we weren't given one.
         if instance is None:
             self.instance_sequence += 1
+
+
         return proposal
-
-    def handle_client_request(self, msg, instance=None):
-        """
-        Start a Paxos instance.
-        """
-        proposal = self.create_proposal(instance)
-        if proposal.instance not in self.instances:
-            self.instances[proposal.instance] = {}
-        if proposal.number not in self.instances[proposal.instance]:
-            self.instances[proposal.instance][proposal.number] = \
-                    BasicPaxosProposerProtocol(self, proposal)
-        self.instances[proposal.instance][proposal.number].request = msg.value
-        self.instances[proposal.instance][proposal.number].handle_client_request(proposal)
-
-    def handle_prepare_response(self, msg):
-        self.instances[msg.proposal.instance][msg.proposal.number].handle_prepare_response(msg)
-
-    def handle_accept_response(self, msg):
-        self.instances[msg.proposal.instance][msg.proposal.number].handle_accept_response(msg)
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-class Acceptor(Agent):
-
-    def __init__(self, *args, **kwargs):
-        super(Acceptor, self).__init__(*args, **kwargs)
-        self.instances = {}
-
-    def create_instance(self, instance_id):
-        """
-        Create a protocol instances for the given instance_id if one doesn't
-        already exist.  Return the protocol instance.
-        """
-        if instance_id not in self.instances:
-            self.instances[instance_id] = BasicPaxosAcceptorProtocol(self)
-        return self.instances[instance_id]
-
-    def handle_message(self, msg):
-        super(Acceptor, self).handle_message(msg)
-        if isinstance(msg, PrepareMsg):
-            self.handle_prepare(msg)
-        if isinstance(msg, AcceptMsg):
-            self.handle_accept(msg)
-
+        
+        
+        
+    #############  ACCEPTOR ###################
     def handle_prepare(self, msg):
         self.create_instance(msg.proposal.instance).handle_prepare(msg)
 
     def handle_accept(self, msg):
         self.create_instance(msg.proposal.instance).handle_accept(msg)
+        
+        
+    def create_instance(self, instance_id):
 
+        
+        """
+        Create a protocol instances for the given instance_id if one doesn't
+        already exist.  Return the protocol instance.
+        """
 
-class Learner(Agent):
-
-    def __init__(self, *args, **kwargs):
-        super(Learner, self).__init__(*args, **kwargs)
-        self.instances = {}
-        # Results stored by instance number.
-        self.results = {}
-
-    def handle_message(self, msg):
-        super(Learner, self).handle_message(msg)
-        if isinstance(msg, AcceptResponseMsg):
-            self.handle_accept_response(msg)
-        # elif isinstance(msg, AdjustWeightsMsg):
-            # self.handle_adjust_weights(msg)
-
+       
+        if instance_id not in self.acceptor_instances:
+            self.acceptor_instances[instance_id] = BasicPaxosAcceptorProtocol(self)
+        return self.acceptor_instances[instance_id]
+        
+        
+    ############# LEARNER  #######################
     def handle_accept_response(self, msg):
+
+ 
+
         number = msg.proposal.number
         instance_id = msg.proposal.instance
-        if instance_id not in self.instances:
-            self.instances[instance_id] = {}
-        if number not in self.instances[instance_id]:
-            self.instances[instance_id][number] = BasicPaxosLearnerProtocol(self)
-        self.instances[instance_id][number].handle_accept_response(msg)
+        if instance_id not in self.learner_instances:
+            self.learner_instances[instance_id] = {}
+        if number not in self.learner_instances[instance_id]:
+            self.learner_instances[instance_id][number] = BasicPaxosLearnerProtocol(self)
+        self.learner_instances[instance_id][number].handle_accept_response(msg)
 
-    # def handle_adjust_weights(self, msg):
-        # self.config.weights = msg.weights
+        self.instance_sequence = msg.proposal.instance + 1
+
 
     def record_result(self, instance, value):
         self.results[instance] = value
@@ -262,52 +254,44 @@ class Learner(Agent):
         self.record_result(instance, value)
         print("*** {} logging result for instance {}: {}".format(self.pid, instance, value))
         self.logger.log_result(self.pid, instance, value)
+        self.logged_values.append("*** {} logging result for instance {}: {}".format(self.pid, instance, value))
 
-		
 
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+        print("FINISHED AND CONSENSUS REACHED")
+        print(list(self.logged_values))
+
+        
+        
+
+        
+        
+        
+        
+        
 class SystemConfig:
     """
     Encapsulates the configuration of a system, i.e. the processes IDs of all
     the proposer, acceptor, and learner processes.
     """
-    def __init__(self, num_proposers, num_acceptors, num_learners,
-                 proposer_class=Proposer,
-                 acceptor_class=Acceptor,
-                 learner_class=Learner,
+    def __init__(self, num_agents,
+                 agent_class=Agent,
                  proposer_sequence_start=None,
                  proposer_sequence_step=None,
-                 message_timeout=0.5,
+                 message_timeout= 3,
                  num_test_requests=0,
                  weights=None,
                  dynamic_weights=False,
                  debug_messages=False,
                  ):
-        self.agent_config = (num_proposers, num_acceptors, num_learners)
-        self.num_processes = sum([num_proposers, num_acceptors, num_learners])
-        self.proposer_class = proposer_class
-        self.acceptor_class = acceptor_class
-        self.learner_class = learner_class
+        #self.agent_config = (num_processes)
+        self.num_agents = num_agents
+        self.agent_class = agent_class
 
-        counter = 0
-        self.proposer_ids = list(range(0, counter + num_proposers))
-        counter += num_proposers
-        self.acceptor_ids = list(range(counter, counter + num_acceptors))
-        counter += num_acceptors
-        self.learner_ids = list(range(counter, counter + num_learners))
+        self.agent_ids = list(range(0, num_agents))
+        #self.acceptor_ids = list(range(0, num_processes))
+        #self.learner_ids = list(range(0, num_processes))
 
+        
         self.proposer_sequence_start = proposer_sequence_start
         self.proposer_sequence_step = proposer_sequence_step
         self.message_timeout = message_timeout
@@ -325,9 +309,7 @@ class SystemConfig:
         self.debug_messages = debug_messages
 
     def __str__(self):
-        return "System Configuration: {}-{}-{}".format(self.proposer_ids,
-                                                       self.acceptor_ids,
-                                                       self.learner_ids)
+        return "System Configuration: {}".format(self.agent_ids)
 
     def process_list(self):
         """
@@ -335,12 +317,10 @@ class SystemConfig:
         System.launch_processes.
         """
         pid = 0
-        for pid in self.proposer_ids:
-            yield (pid, self.proposer_class)
-        for pid in self.acceptor_ids:
-            yield (pid, self.acceptor_class)
-        for pid in self.learner_ids:
-            yield (pid, self.learner_class)
+        for pid in self.agent_ids:
+            yield (pid, self.agent_class)
+        #    yield (pid, self.acceptor_class)
+        #    yield (pid, self.learner_class)
 
     # def config_static_weights(self, weights, num_acceptors):
         # if weights:

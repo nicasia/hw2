@@ -12,31 +12,11 @@ class BasicPaxosProtocol:
         of acceptors make up a majority.
         """
         config = self.agent.config
-        majority_number = len(config.acceptor_ids) / float(2)
+        majority_number = len(config.agent_ids) / float(2)
         current_number = len(acceptors)
         return current_number > majority_number
 
-    # def tally_outbound_msgs(self):
-        # if self.agent.analyzer:
-            # for pid in self.agent.config.acceptor_ids:
-                # self.agent.analyzer.add_send(pid)
-
-    # def tally_inbound_msgs(self, pid):
-        # if self.agent.analyzer:
-            # self.agent.analyzer.add_recvd(pid)
-
-    # def adjust_weights(self):
-        # if self.agent.analyzer:
-            # self.agent.analyzer.check()
-            # if self.agent.analyzer.weight_changed:
-                # weights = self.agent.analyzer.weights
-                # source = self.agent.pid
-                # msg = AdjustWeightsMsg(source, weights)
-                # self.agent.send_message(msg, self.agent.config.learner_ids)
-                # print("--RATIOS--{}".format(self.agent.analyzer.msg_ratios))
-                # print("--WEIGHTS--{}".format(weights))
-                # self.agent.analyzer.weight_changed = False
-
+   
 				
 class BasicPaxosProposerProtocol(BasicPaxosProtocol):
 
@@ -58,7 +38,7 @@ class BasicPaxosProposerProtocol(BasicPaxosProtocol):
 
 	def handle_client_request(self, proposal):
 		next_msg = PrepareMsg(proposal.pid, proposal)
-		self.agent.send_message(next_msg, self.agent.config.acceptor_ids)
+		self.agent.send_message(next_msg, self.agent.config.agent_ids)
 		# if dynamic weights, tally messages
 		# self.tally_outbound_msgs()
 		self.state = self.PREPARE_SENT
@@ -90,13 +70,16 @@ class BasicPaxosProposerProtocol(BasicPaxosProtocol):
 					self.client_request_handled = True
 				next_msg = AcceptMsg(self.agent.pid, self.proposal)
 				# Can send to all acceptors or just the ones that responded.
-				self.agent.send_message(next_msg, self.agent.config.acceptor_ids)
+				self.agent.send_message(next_msg, self.agent.config.agent_ids)
 				#self.agent.send_message(next_msg, self.prepare_responders)
 				# self.tally_outbound_msgs()
 				self.state = self.ACCEPT_SENT
 
 	def handle_accept_response(self, msg):
 		self.accept_responders.add(msg.source)
+
+
+
 	# # self.tally_inbound_msgs(msg.source)
 	# if self.have_acceptor_majority(self.accept_responders):
 		# self.adjust_weights()
@@ -140,7 +123,7 @@ class BasicPaxosAcceptorProtocol(BasicPaxosProtocol):
             # Send "accepted" message to sender of the accept message
             # (the proposer), and to all learners.
             self.agent.send_message(next_msg,
-                              [msg.source] + list(self.agent.config.learner_ids))
+                              [msg.source] + list(self.agent.config.agent_ids))
 
 							  
 							  
@@ -158,10 +141,10 @@ class BasicPaxosLearnerProtocol(BasicPaxosProtocol):
         self.RESULT_SENT = 1
 
     def handle_accept_response(self, msg):
-        self.accept_responders[msg.proposal.value].add(msg.source)
+        self.accept_responders[msg.proposal.value.lock_number].add(msg.source)
         # Don't do anything if we've already logged the result.
         if self.state == self.RESULT_SENT:
             return
-        if self.have_acceptor_majority(self.accept_responders[msg.proposal.value]):
+        if self.have_acceptor_majority(self.accept_responders[msg.proposal.value.lock_number]):
             self.agent.log_result(msg)
             self.state = self.RESULT_SENT

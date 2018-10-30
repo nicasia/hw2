@@ -4,7 +4,7 @@ import queue
 from threading import Thread
 import time
 
-from __init__ import Proposer, Learner, Acceptor, BaseSystem
+from __init__ import Agent, BaseSystem
 
 
 class Mailbox:
@@ -15,7 +15,7 @@ class Mailbox:
     def __init__(self, config):
         self.config = config
         self.funnel = Queue()
-        self.inbox = [Queue() for i in range(config.num_processes)]
+        self.inbox = [Queue() for i in range(config.num_agents)]
         self.message_count = 0
 
         # Two flags, active to signal when we haven't received any messages
@@ -154,130 +154,6 @@ class ResultLogger:
         summary = self.get_summary_data()
         summary.print_summary()
 
-
-class ResultSummary:
-    """
-    Given a logger object, summarize its results.
-    """
-
-    def __init__(self, logger):
-        self.logger = logger
-        self.instances = range(1, self.logger.config.num_test_requests + 1)
-        self.pids = self.logger.config.learner_ids
-        self.calculate()
-
-    def calculate(self):
-        self.calculate_missing()
-        self.calculate_consistency()
-
-    def calculate_missing(self):
-        self.learned_values = 0
-        self.missing_values = 0
-        self.total_values = 0
-        for i in self.instances:
-            for pid in self.pids:
-                value = self.logger.results[pid].get(i)
-                self.total_values += 1
-                if value is None:
-                    self.missing_values += 1
-                else:
-                    self.learned_values += 1
-        self.learned_values_percent = float(100) * self.learned_values / self.total_values
-        self.missing_values_percent = float(100) * self.missing_values / self.total_values
-
-    def calculate_consistency(self):
-        """
-        Count the number of consistent and inconsistent instance results,
-        excluding unlearned or missing values.
-        """
-        # Disjoint set: good and bad (consistent and inconsistent) instances.
-        self.good_instances = 0
-        self.bad_instances = 0
-        # Disjoint set: empty, incomplete, and complete instances representing
-        # no, some, or all learners learned the value.
-        self.empty_instances = 0
-        self.incomplete_instances = 0
-        self.complete_instances = 0
-        for i in self.instances:
-            values = set()
-            num_none = 0
-            for pid in self.pids:
-                value = self.logger.results[pid].get(i)
-                if value is None:
-                    num_none += 1
-                else:
-                    values.add(value)
-            length = len(values)
-            if length == 0:
-                self.good_instances += 1
-                self.empty_instances += 1
-            elif length == 1:
-                if num_none == 0:
-                    self.complete_instances += 1
-                else:
-                    self.incomplete_instances += 1
-                self.good_instances += 1
-            else:
-                self.bad_instances += 1
-        self.good_instances_percent = float(100) * self.good_instances / len(self.instances)
-        self.bad_instances_percent = float(100) * self.bad_instances / len(self.instances)
-        self.empty_instances_percent = float(100) * self.empty_instances / len(self.instances)
-        self.incomplete_instances_percent = float(100) * self.incomplete_instances / len(self.instances)
-        self.complete_instances_percent = float(100) * self.complete_instances / len(self.instances)
-
-    def get_summary_headings(self):
-        return [
-            "learned values", "learned values percent",
-            "missing values", "missing_values_percent",
-            "total_values",
-            "good_instances", "good_instances_percent",
-            "bad_instances", "bad_instances_percent",
-            "empty_instances", "empty_instances_percent",
-            "incomplete_instances", "incomplete_instances_percent",
-            "complete_instances", "complete_instances_percent",
-            "total instances",
-        ]
-
-    def get_summary_data(self):
-        return [
-            self.learned_values, self.learned_values_percent,
-            self.missing_values, self.missing_values_percent,
-            self.total_values,
-            self.good_instances, self.good_instances_percent,
-            self.bad_instances, self.bad_instances_percent,
-            self.empty_instances, self.empty_instances_percent,
-            self.incomplete_instances, self.incomplete_instances_percent,
-            self.complete_instances, self.complete_instances_percent,
-            len(self.instances),
-        ]
-
-    def print_summary(self):
-        print(self.get_summary_data())
-        print("""\
-Values:
-    Learned: {:>6} {:>6.1f}%
-    Missing: {:>6} {:>6.1f}%
-    =======================
-      Total: {:>6}
-Instances:
-    Consistent: {:>6} {:>6.1f}%
-  Inconsistent: {:>6} {:>6.1f}%
-    --------------------------
-         Empty: {:>6} {:>6.1f}%
-    Incomplete: {:>6} {:>6.1f}%
-      Complete: {:>6} {:>6.1f}%
-    ==========================
-         Total: {:>6}
-""".format(*self.get_summary_data()))
-
-    def log_summary(self):
-        import os
-        filename = 'log.txt'
-        print_headings = not os.path.exists(filename)
-        with open(filename, 'a') as f:
-            if print_headings:
-                f.write('\t'.join(self.get_summary_headings()))
-            f.write('\t'.join(self.get_summary_data()))
 
 
 class System(BaseSystem):

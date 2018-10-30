@@ -17,7 +17,7 @@ class BaseSystem:
     class that lives someplace else.
     """
 
-	
+    
 class Agent:
     """
     A Paxos agent, meant to be subclassed for implementing the paxos roles.
@@ -33,9 +33,9 @@ class Agent:
         # Flag for any process threads to shutdown.
         self.stopping = False
 
-		
-		
-		######## PROPOSER #########
+        
+        
+        ######## PROPOSER #########
         # Paxos Made Simple suggests that proposers in a system use a disjoint
         # set of proposal numbers.  So, we start each Proposer's sequence
         # number at its pid value (which is unique) and we increment by the
@@ -50,20 +50,20 @@ class Agent:
         # each proposal tried during an instance.
         self.proposer_instances = {}
         self.instance_sequence = 1
-		
-		########## ACCEPTOR ###########
+        
+        ########## ACCEPTOR ###########
         self.acceptor_instances = {}
-		
-		######## LEARNER ###########
+        
+        ######## LEARNER ###########
         # Results stored by instance number.
         self.results = {}
         self.learner_instances = {}
-		
         
-		
-		
-		
-		
+        
+        
+        
+        
+        
     def run(self):
         """
         Loop forever, listening for and handling any messages sent to us.
@@ -107,23 +107,23 @@ class Agent:
             self.set_config(msg)
         if msg == 'quit':
             self.handle_quit()
-			
-		######### PROPOSER ###########
+            
+        ######### PROPOSER ###########
         if isinstance(msg, ClientRequestMsg):
             self.handle_client_request(msg)
         elif isinstance(msg, PrepareResponseMsg):
             self.handle_prepare_response(msg)
         elif isinstance(msg, AcceptResponseMsg):
             self.handle_accept_response(msg)
-			
-			
-		####### ACCEPTOR ###########
+            
+            
+        ####### ACCEPTOR ###########
         elif isinstance(msg, PrepareMsg):
             self.handle_prepare(msg)
         elif isinstance(msg, AcceptMsg):
             self.handle_accept(msg)
-			
-		######### LEARNER #############
+            
+        ######### LEARNER #############
         elif isinstance(msg, AcceptResponseMsg):
             self.handle_accept_response(msg)
 
@@ -139,11 +139,11 @@ class Agent:
         if config.proposer_sequence_step:
             self.sequence_step = config.proposer_sequence_step
         else:
-            self.sequence_step = len(config.proposer_ids)
+            self.sequence_step = len(config.agent_ids)
 
-			
-			
-			
+            
+            
+            
 
     def stop(self):
         """Stop any helper threads."""
@@ -155,7 +155,7 @@ class Agent:
         self.active = False
 
 
-	############ PROPOSER #################
+    ############ PROPOSER #################
     def handle_client_request(self, msg, instance=None):
         """
         Start a Paxos instance.
@@ -195,9 +195,9 @@ class Agent:
         if instance is None:
             self.instance_sequence += 1
         return proposal
-		
-		
-		
+        
+        
+        
     #############  ACCEPTOR ###################
     def handle_prepare(self, msg):
         self.create_instance(msg.proposal.instance).handle_prepare(msg)
@@ -238,48 +238,36 @@ class Agent:
         self.logger.log_result(self.pid, instance, value)
 
         
-		
+        
 
-		
-		
-		
-		
-		
+        
+        
+        
+        
+        
 class SystemConfig:
     """
     Encapsulates the configuration of a system, i.e. the processes IDs of all
     the proposer, acceptor, and learner processes.
     """
-    def __init__(self, num_proposers, num_acceptors, num_learners,
-                 proposer_class=Agent,
-                 acceptor_class=Agent,
-                 learner_class=Agent,
+    def __init__(self, num_agents,
+                 agent_class=Agent,
                  proposer_sequence_start=None,
                  proposer_sequence_step=None,
-                 message_timeout=0.5,
+                 message_timeout= 3,
                  num_test_requests=0,
                  weights=None,
                  dynamic_weights=False,
                  debug_messages=False,
                  ):
-        self.agent_config = (num_proposers, num_acceptors, num_learners)
-        self.num_processes = sum([num_proposers, num_acceptors, num_learners])
-        self.proposer_class = proposer_class
-        self.acceptor_class = acceptor_class
-        self.learner_class = learner_class
+        #self.agent_config = (num_processes)
+        self.num_agents = num_agents
+        self.agent_class = agent_class
 
-        counter = 0
-        self.proposer_ids = list(range(0, counter + num_proposers))
-        counter += num_proposers
-        self.acceptor_ids = list(range(counter, counter + num_acceptors))
-        counter += num_acceptors
-        self.learner_ids = list(range(counter, counter + num_learners))
+        self.agent_ids = list(range(0, num_agents))
+        #self.acceptor_ids = list(range(0, num_processes))
+        #self.learner_ids = list(range(0, num_processes))
 
-        # self.proposer_ids = list(range(0, num_proposers + num_acceptors + num_learners))
-        # self.acceptor_ids = list(range(0, num_proposers + num_acceptors + num_learners))
-        # self.learner_ids = list(range(0, num_proposers + num_acceptors + num_learners))
-        
-        
         
         self.proposer_sequence_start = proposer_sequence_start
         self.proposer_sequence_step = proposer_sequence_step
@@ -298,9 +286,7 @@ class SystemConfig:
         self.debug_messages = debug_messages
 
     def __str__(self):
-        return "System Configuration: {}-{}-{}".format(self.proposer_ids,
-                                                       self.acceptor_ids,
-                                                       self.learner_ids)
+        return "System Configuration: {}".format(self.agent_ids)
 
     def process_list(self):
         """
@@ -308,12 +294,10 @@ class SystemConfig:
         System.launch_processes.
         """
         pid = 0
-        for pid in self.proposer_ids:
-            yield (pid, self.proposer_class)
-        for pid in self.acceptor_ids:
-            yield (pid, self.acceptor_class)
-        for pid in self.learner_ids:
-            yield (pid, self.learner_class)
+        for pid in self.agent_ids:
+            yield (pid, self.agent_class)
+        #    yield (pid, self.acceptor_class)
+        #    yield (pid, self.learner_class)
 
     # def config_static_weights(self, weights, num_acceptors):
         # if weights:
