@@ -141,10 +141,10 @@ class BasicPaxosLearnerProtocol(BasicPaxosProtocol):
         self.RESULT_SENT = 1
 
     def handle_accept_response(self, msg):
-        self.accept_responders[msg.proposal.value.lock_number].add(msg.source)
+        self.accept_responders[msg.proposal.value].add(msg.source)
         # Don't do anything if we've already logged the result.
         if self.state == self.RESULT_SENT:
             return
-        if self.have_acceptor_majority(self.accept_responders[msg.proposal.value.lock_number]):
+        if self.have_acceptor_majority(self.accept_responders[msg.proposal.value]):
             self.agent.log_result(msg)
             self.state = self.RESULT_SENT

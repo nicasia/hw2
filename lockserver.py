@@ -15,6 +15,32 @@ class Lock:
     def __str__(self):
         return "Lock status: {} and owner: {}".format(self.lock_status, self.owner)
 
+        
+
+num_locks = 5
+lock_status_list = [None]*5
+
+def lock(client, lock_id):
+    if lock_status_list[lock_id]:
+        REJECT
+    else:
+        ClientRequestMsg
+        self.logged_values)
+
+def unlock(client, lock_id):
+    if lock_status_list[lock_id] == client:
+        ClientRequestMsg
+    else:
+        REJECT
+        
+##### do we keep checking to see if the logger changed? 
+# how do we notify when consensus is reached?
+def update_after_consensus():
+    
+    
+
+
+
 
 
 def test_paxos(sytem):
@@ -72,12 +98,6 @@ def test_paxos3():
     lock1 = Lock("User 11", 0, 1)
     system.mailbox.send(4, ClientRequestMsg(None, lock1))
 
-def test_server():
-    time.sleep(2)
-    
-    message = {"type": "lock", "lock_id": 0, "client_id": 1}
-    
-    system.mailbox.send(0,ClientRequestMsg(None, message))
 
 def test_multi_paxos():
     config = SystemConfig(3, 3, 3)

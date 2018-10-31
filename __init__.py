@@ -33,8 +33,10 @@ class Agent:
         # Flag for any process threads to shutdown.
         self.stopping = False
 
-        ######## LIST OF ALL LOG VALUES #########
+        ######## LOCK FUNCTIONALITY STUFF HERE #########
         self.logged_values = [];
+        num_locks = 5
+        self.lock_status_list = [None]*5
 
 
         ######## PROPOSER #########
@@ -142,6 +144,7 @@ class Agent:
             self.sequence_step = config.proposer_sequence_step
         else:
             self.sequence_step = len(config.agent_ids)
+        #print("********* SEQUENCE STEP:", self.sequence_step)
 
             
             
@@ -162,16 +165,19 @@ class Agent:
         """
         Start a Paxos instance.
         """
-
-        #NOW WE WANT TO CHECK WHETHER THE 
         proposal = self.create_proposal(instance)
         if proposal.instance not in self.proposer_instances:
             self.proposer_instances[proposal.instance] = {}
         if proposal.number not in self.proposer_instances[proposal.instance]:
             self.proposer_instances[proposal.instance][proposal.number] = \
-                    BasicPaxosProposerProtocol(self, proposal)
+                                BasicPaxosProposerProtocol(self, proposal)
         self.proposer_instances[proposal.instance][proposal.number].request = msg.value
         self.proposer_instances[proposal.instance][proposal.number].handle_client_request(proposal)
+
+      
+    
+                
+        
 
     def handle_prepare_response(self, msg):
         self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_prepare_response(msg)
@@ -199,8 +205,8 @@ class Agent:
         self.sequence += self.sequence_step
         
         # Only increment the instance sequence if we weren't given one.
-        if instance is None:
-            self.instance_sequence += 1
+        # if instance is None:
+            # self.instance_sequence += 1
 
 
         return proposal
