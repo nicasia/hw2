@@ -65,7 +65,8 @@ class Agent:
         self.learner_instances = {}
         
         self.rejections_seen = set()
-        
+        self.rejected_proposals = []
+        self.valid_client_proposals = {}
         
         
         
@@ -129,13 +130,8 @@ class Agent:
             if msg.proposal.number not in self.rejections_seen:
                 print("REJECTED - RESTARTING", msg)
                 self.rejections_seen.add(msg.proposal.number)
-                #time.sleep(.5)
-                
-                
-############### ADD TO LIST & CALL UPON ACCEPT ######################               
+                self.rejected_proposals.append(msg.proposal)
 
-               self.handle_client_request(ClientRequestMsg(None, msg.proposal.value))
-            
             
         ####### ACCEPTOR ###########
         elif isinstance(msg, PrepareMsg):
@@ -195,6 +191,8 @@ class Agent:
                                     BasicPaxosProposerProtocol(self, proposal)
             self.proposer_instances[proposal.instance][proposal.number].request = msg.value
             self.proposer_instances[proposal.instance][proposal.number].handle_client_request(proposal)
+            
+            self.valid_client_proposals[proposal.number] = msg.value
         else:
             print("rejected!!!!!!!!!!!")
             return
@@ -274,15 +272,8 @@ class Agent:
         self.instance_sequence = msg.proposal.instance + 1
         
         
-        # if self.pending_proposals:
-            # print("HANDLING REJECT RESPONSES", self.pid)#[str(list(x.value)) for x in self.pending_proposals])
-            # for new_proposal in self.pending_proposals:
-                # # self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_accept_response(msg)
-                # if new_proposal.pid==self.pid:
-                    # self.handle_client_request(ClientRequestMsg(None, new_proposal.value))
-            # self.pending_proposals = []
-
-
+                       
+                       
     def record_result(self, instance, value):
         self.results[instance] = value
 
@@ -312,6 +303,12 @@ class Agent:
         print(list(self.logged_values))
         print(self.states_list_print)
 
+        while self.rejections_seen:
+            print("HANDLING REJECT RESPONSES", self.pid)#[str(list(x.value)) for x in self.pending_proposals])
+            rej_proposal_number = self.rejections_seen.pop()
+            # self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_accept_response(msg)
+            self.handle_client_request(ClientRequestMsg(None, self.valid_client_proposals[rej_proposal_number]))
+                       
         
         
 

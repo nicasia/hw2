@@ -95,13 +95,23 @@ def test_paxos3():
 def test_server():
     time.sleep(2)
     
-    message = {"type": "lock", "lock_id": 1, "client_id": 1}
-    message2 = {"type": "lock", "lock_id": 2, "client_id": 2}
-  #  message3 = {"type": "lock", "lock_id": 3, "client_id": 3}
+    message = {"type": "lock", "lock_id": 1, "client_id": "A"}
+    message2 = {"type": "lock", "lock_id": 1, "client_id": "B"}
+    message3 = {"type": "lock", "lock_id": 3, "client_id": "C"}
+    message4 = {"type": "unlock", "lock_id": 1, "client_id": "C"}
+    message5 = {"type": "lock", "lock_id": 1, "client_id": "C"}
 
+    
     system.mailbox.send(0,ClientRequestMsg(None, message))
-    system.mailbox.send(0,ClientRequestMsg(None, message2))
-   # system.mailbox.send(2,ClientRequestMsg(None, message3))
+    system.mailbox.send(1,ClientRequestMsg(None, message2))
+    system.mailbox.send(2,ClientRequestMsg(None, message3))
+    system.mailbox.send(3,ClientRequestMsg(None, message4))
+    system.mailbox.send(4,ClientRequestMsg(None, message5))
+    time.sleep(1)
+    system.mailbox.send(4,ClientRequestMsg(None, message4))
+    time.sleep(1)
+    system.mailbox.send(3,ClientRequestMsg(None, message))
+
 
 
 
@@ -126,7 +136,7 @@ def test_multi_paxos():
 
 if __name__ == "__main__":
 	# test_multi_paxos()
-	system = System(SystemConfig(3))
+	system = System(SystemConfig(5))
 	#system = DebugSystem(SystemConfig(2, 3, 2, proposer_sequence_start=1,
 	#                             proposer_sequence_step=1))
 	#system = DebugSystem(SystemConfig(1, 3, 1))
