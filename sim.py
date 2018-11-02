@@ -103,6 +103,8 @@ class ResultLogger:
         self.active = True
         # Results, PID mapped to list of decided values.
         self.results = defaultdict(dict)
+        self.accepted_results_q = Queue()
+        self.failed_results_q = Queue()
 
     def run(self):
         print("Logger started")
@@ -120,9 +122,16 @@ class ResultLogger:
                     self.results[source][instance] = value
         print("Logger shutting down")
 
-    def log_result(self, source, instance, value):
+    def log_result(self, source, instance, value, status):
         self.queue.put((source, instance, value))
+        self.accepted_results_q.put((source, instance, value, status))
+        print("~~~~~~~~WINNER!!!!", source, instance, value, status)
 
+    def log_failure(self, source, value, status):
+        self.failed_results_q.put((source, value, status))
+        print("~~~~~~~~LOSER!!!!", source, value, status)
+
+        
     def print_results(self):
         print("Process Result Log:")
         processes = sorted(self.results.keys())
@@ -231,7 +240,7 @@ class System(BaseSystem):
         self.join()
 
     def quit(self):
-        self.logger.log_result("quit", None, None)
+        self.logger.log_result("quit", None, None, None)
         self.logger_process.join()
         self.mailbox.quit()
         self.mailbox_process.join()

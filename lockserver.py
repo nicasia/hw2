@@ -7,130 +7,42 @@ from __init__ import SystemConfig
 from messages import *
 from sim import System, Mailbox
 
-class Lock:
-    def __init__(self, owner, lock_status, lock_number):
-        self.owner = owner
-        self.lock_status = lock_status
-        self.lock_number = lock_number
-    def __str__(self):
-        return "Lock status: {} and owner: {}".format(self.lock_status, self.owner)
-
-        
-
-num_locks = 5
-lock_status_list = [None]*5
-
-def lock(client, lock_id):
-    if lock_status_list[lock_id]:
-        REJECT
-    else:
-        ClientRequestMsg
-        self.logged_values)
-
-def unlock(client, lock_id):
-    if lock_status_list[lock_id] == client:
-        ClientRequestMsg
-    else:
-        REJECT
-        
-##### do we keep checking to see if the logger changed? 
-# how do we notify when consensus is reached?
-def update_after_consensus():
-    
-    
-
-
-
-
-
-def test_paxos(sytem):
-    for x in range(2):
-        system.mailbox.send(random.randint(0, len(system.config.proposer_ids)-1),
-                            ClientRequestMsg(None, "Query {}".format(x)))
-        #time.sleep(0.5)
-
-def test_paxos2():
-    time.sleep(2)
-    
-    
-
-    system.mailbox.send(0,ClientRequestMsg(None, "Query {}".format(0)))
-    system.mailbox.send(1,ClientRequestMsg(None, "Query {}".format(1)))
-    time.sleep(0.5)
-    system.mailbox.send(0,ClientRequestMsg(None, "Query {}".format(2)))
-    time.sleep(0.5)
-    system.mailbox.send(2,ClientRequestMsg(None, "Query {}".format(3)))
-    time.sleep(1)
-    system.mailbox.send(1,ClientRequestMsg(None, "Query {}".format(4)))
-    system.mailbox.send(1,ClientRequestMsg(None, "Query {}".format(5)))
-    system.mailbox.send(1,ClientRequestMsg(None, "Query {}".format(6)))
-
-    time.sleep(0.5)
-    system.mailbox.send(1,ClientRequestMsg(None, "Query {}".format(7)))
-
-    time.sleep(0.5)
-    system.mailbox.send(2,ClientRequestMsg(None, "Query {}".format(8)))
-
-def test_paxos3():
-    time.sleep(2)
-
-    lock1 = Lock("User 1", 1, 1)
-    system.mailbox.send(0, ClientRequestMsg(None, lock1))
-
-    lock1 = Lock("User 2", 1, 1)
-    system.mailbox.send(0, ClientRequestMsg(None, lock1))
-    time.sleep(2)
-    lock1 = Lock("User 3", 1, 1)
-    system.mailbox.send(0, ClientRequestMsg(None, lock1))
-    lock1 = Lock("User 4", 0, 1)
-    system.mailbox.send(1, ClientRequestMsg(None, lock1))
-    time.sleep(2)
-    lock1 = Lock("User 5", 1, 1)
-    system.mailbox.send(3, ClientRequestMsg(None, lock1))
-    time.sleep(2)
-    lock1 = Lock("User 6", 0, 1)
-    system.mailbox.send(3, ClientRequestMsg(None, lock1))
-
-    time.sleep(2)
-    lock1 = Lock("User 8", 0, 1)
-    system.mailbox.send(1, ClientRequestMsg(None, lock1))
-    lock1 = Lock("User 9", 0, 1)
-    system.mailbox.send(2, ClientRequestMsg(None, lock1))
-    lock1 = Lock("User 10", 0, 1)
-    system.mailbox.send(3, ClientRequestMsg(None, lock1))
-    lock1 = Lock("User 11", 0, 1)
-    system.mailbox.send(4, ClientRequestMsg(None, lock1))
-
-
-def test_multi_paxos():
-    config = SystemConfig(3, 3, 3)
-    system = DebugSystem(config)
-    system.start()
-
-    for x in range(20):
-        # Always send to the same proposer, effectively using that proposer as
-        # the leader.
-        to = 0
-        system.mailbox.send(to, ClientRequestMsg(None, "Query {}".format(x)))
-        time.sleep(random.random()/10)
-
-    system.shutdown_agents()
-    system.logger.print_results()
-    #print(system.print_sent_messages())
-    system.quit()
-    import sys
-    sys.exit()
-
-if __name__ == "__main__":
-	# test_multi_paxos()
-	system = System(SystemConfig(3))
-	#system = DebugSystem(SystemConfig(2, 3, 2, proposer_sequence_start=1,
-	#                             proposer_sequence_step=1))
-	#system = DebugSystem(SystemConfig(1, 3, 1))
-	system.start()
-	#test_paxos(system)
-	test_paxos2()
-	system.shutdown_agents()
-	system.logger.print_results()
-	# print(system.print_sent_messages())
-	system.quit()
+ 
+import socket, threading
+class ClientThread(threading.Thread):
+    def __init__(self,clientAddress,clientsocket):
+        threading.Thread.__init__(self)
+        self.csocket = clientsocket
+        print ("New connection added: ", clientAddress)
+    def run(self):
+        print ("Connection from : ", clientAddress)
+        #self.csocket.send(bytes("Hi, This is from Server..",'utf-8'))
+        msg = ''
+        while True:
+            data = self.csocket.recv(2048)
+            msg = data.decode()
+            if msg=='bye':
+                break
+            
+            method,lock_id  = msg.split(" ")
+            if method == "lock":
+                print("LOCKING")
+            elif method == "unlock":
+                print("UNLOCKING")
+            else:
+                print ("wrong format", msg)
+            
+            self.csocket.send(bytes(msg,'UTF-8'))
+        print ("Client at ", clientAddress , " disconnected...")
+LOCALHOST = "127.0.0.1"
+PORT = 8080
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind((LOCALHOST, PORT))
+print("Server started")
+print("Waiting for client request..")
+while True:
+    server.listen(1)
+    clientsock, clientAddress = server.accept()
+    newthread = ClientThread(clientAddress, clientsock)
+    newthread.start()

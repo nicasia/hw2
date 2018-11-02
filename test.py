@@ -111,7 +111,7 @@ def test_server():
     system.mailbox.send(4,ClientRequestMsg(None, message4))
     time.sleep(1)
     system.mailbox.send(3,ClientRequestMsg(None, message))
-
+    
 
 
 
@@ -135,15 +135,31 @@ def test_multi_paxos():
     sys.exit()
 
 if __name__ == "__main__":
-	# test_multi_paxos()
-	system = System(SystemConfig(5))
-	#system = DebugSystem(SystemConfig(2, 3, 2, proposer_sequence_start=1,
-	#                             proposer_sequence_step=1))
-	#system = DebugSystem(SystemConfig(1, 3, 1))
-	system.start()
-	#test_paxos(system)
-	test_server()
-	system.shutdown_agents()
-	system.logger.print_results()
-	# print(system.print_sent_messages())
-	system.quit()
+
+    instance_results_sent_log = set()
+    
+    # test_multi_paxos()
+    system = System(SystemConfig(5))
+    #system = DebugSystem(SystemConfig(2, 3, 2, proposer_sequence_start=1,
+    #                             proposer_sequence_step=1))
+    #system = DebugSystem(SystemConfig(1, 3, 1))
+    system.start()
+    #test_paxos(system)
+    test_server()
+    system.shutdown_agents()
+    system.logger.print_results()
+    # print(system.print_sent_messages())
+    #print(system.logger.accepted_results_q)
+    print("empty queue?:", system.logger.accepted_results_q.empty())
+    while not system.logger.accepted_results_q.empty():
+        s,i,v, status = system.logger.accepted_results_q.get()
+        if i not in instance_results_sent_log:
+            instance_results_sent_log.add(i)
+            print("Success for node %i, instance %i"%(s,i), v, status)
+            
+    while not system.logger.failed_results_q.empty():
+        s,v, status = system.logger.failed_results_q.get()
+        print("Failure for node %i"%(s), v, status)
+    
+
+    system.quit()

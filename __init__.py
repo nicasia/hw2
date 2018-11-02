@@ -195,6 +195,7 @@ class Agent:
             self.valid_client_proposals[proposal.number] = msg.value
         else:
             print("rejected!!!!!!!!!!!")
+            self.logger.log_failure(self.pid, msg.value, self.lock_status_list)
             return
       
       
@@ -282,7 +283,6 @@ class Agent:
         value = msg.proposal.value
         self.record_result(instance, value)
         print("*** {} logging result for instance {}: {}".format(self.pid, instance, value))
-        self.logger.log_result(self.pid, instance, value)
         self.logged_values.append("*** {} logging result for instance {}: {}".format(self.pid, instance, value))
 
         
@@ -291,6 +291,7 @@ class Agent:
         else:
             self.lock_status_list[value["lock_id"]] = None
             
+        self.logger.log_result(self.pid, instance, value, self.lock_status_list)
 
 
         print("FINISHED AND CONSENSUS REACHED")
