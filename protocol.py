@@ -15,7 +15,8 @@ class BasicPaxosProtocol:
         majority_number = len(config.agent_ids) / float(2)
         current_number = len(acceptors)
         return current_number > majority_number
-
+    
+ 
    
 				
 class BasicPaxosProposerProtocol(BasicPaxosProtocol):
@@ -80,6 +81,7 @@ class BasicPaxosProposerProtocol(BasicPaxosProtocol):
 
 
 
+
 	# # self.tally_inbound_msgs(msg.source)
 	# if self.have_acceptor_majority(self.accept_responders):
 		# self.adjust_weights()
@@ -109,10 +111,11 @@ class BasicPaxosAcceptorProtocol(BasicPaxosProtocol):
             next_msg = PrepareResponseMsg(self.agent.pid, msg.proposal,
                                           self.highest_proposal_accepted)
             self.agent.send_message(next_msg, [msg.source])
-        # Optimization: send proposer a reject message because another proposer
-        # has already initiated a proposal with a higher number.
-        #else:
-        #    msg = RejectMsg()
+
+        else:
+            next_msg = RejectionMsg(self.agent.pid, msg.proposal)
+            self.agent.send_message(next_msg,[msg.source])			  
+
 
     def handle_accept(self, msg):
         # Accept proposal unless we have already promised a higher proposal number.
@@ -122,11 +125,10 @@ class BasicPaxosAcceptorProtocol(BasicPaxosProtocol):
             next_msg = AcceptResponseMsg(self.agent.pid, msg.proposal)
             # Send "accepted" message to sender of the accept message
             # (the proposer), and to all learners.
-            self.agent.send_message(next_msg,
-                              [msg.source] + list(self.agent.config.agent_ids))
-
-							  
-							  
+            self.agent.send_message(next_msg,[msg.source] + list(self.agent.config.agent_ids))
+        else:
+            next_msg = RejectionMsg(self.agent.pid, msg.proposal)
+            self.agent.send_message(next_msg,[msg.source])			  
 
 							  
 							  
@@ -141,10 +143,12 @@ class BasicPaxosLearnerProtocol(BasicPaxosProtocol):
         self.RESULT_SENT = 1
 
     def handle_accept_response(self, msg):
-        self.accept_responders[msg.proposal.value].add(msg.source)
+    
+        newkey =  msg.proposal.value["type"] + "-" +  str(msg.proposal.value["lock_id"])  + "-" +  str(msg.proposal.value["client_id"])
+        self.accept_responders[newkey].add(msg.source)
         # Don't do anything if we've already logged the result.
         if self.state == self.RESULT_SENT:
             return
-        if self.have_acceptor_majority(self.accept_responders[msg.proposal.value]):
+        if self.have_acceptor_majority(self.accept_responders[newkey]):
             self.agent.log_result(msg)
             self.state = self.RESULT_SENT

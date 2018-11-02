@@ -51,6 +51,9 @@ def test_paxos(sytem):
 
 def test_paxos2():
     time.sleep(2)
+    
+    
+
     system.mailbox.send(0,ClientRequestMsg(None, "Query {}".format(0)))
     system.mailbox.send(1,ClientRequestMsg(None, "Query {}".format(1)))
     time.sleep(0.5)

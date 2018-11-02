@@ -6,8 +6,7 @@ class Proposal:
         self.pid = pid
         self.value = value
     def __str__(self):
-        return "Proposal[N-{}, I-{}, {}]".format(self.number, self.instance,
-                                                 self.value)
+        return "Proposal[proposal#-{}, instance-{}, value-{}]".format(self.number, self.instance, self.value)
 
 
 class Message:
@@ -38,6 +37,8 @@ class ProposalMsg(Message):
 class PrepareMsg(ProposalMsg):
     name = "Prepare"
 
+    
+    ##########
 class PrepareResponseMsg(ProposalMsg):
     name = "Prepare Response"
     def __init__(self, source, proposal, highest_proposal):
@@ -46,9 +47,13 @@ class PrepareResponseMsg(ProposalMsg):
     def __str__(self):
         return "{}: {}, {}".format(self.name, self.proposal,
                                    self.highest_proposal)
+                                   
 
 class AcceptMsg(ProposalMsg):
     name = "Accept"
 
 class AcceptResponseMsg(ProposalMsg):
     name = "Accept Response"
+
+class RejectionMsg(ProposalMsg):
+    name = "Rejection Message"

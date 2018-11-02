@@ -34,7 +34,8 @@ class Agent:
         self.stopping = False
 
         ######## LOCK FUNCTIONALITY STUFF HERE #########
-        self.logged_values = [];
+        self.logged_values = []
+        self.states_list_print =[]
         num_locks = 5
         self.lock_status_list = [None]*5
 
@@ -62,6 +63,8 @@ class Agent:
         # Results stored by instance number.
         self.results = {}
         self.learner_instances = {}
+        
+        self.rejections_seen = set()
         
         
         
@@ -119,6 +122,19 @@ class Agent:
             self.handle_prepare_response(msg)
         elif isinstance(msg, AcceptResponseMsg):
             self.handle_accept_response(msg)
+        elif isinstance(msg, RejectionMsg):
+            # if msg.proposal not in self.pending_proposals:
+            #self.pending_proposals.append(msg.proposal)
+            
+            if msg.proposal.number not in self.rejections_seen:
+                print("REJECTED - RESTARTING", msg)
+                self.rejections_seen.add(msg.proposal.number)
+                #time.sleep(.5)
+                
+                
+############### ADD TO LIST & CALL UPON ACCEPT ######################               
+
+               self.handle_client_request(ClientRequestMsg(None, msg.proposal.value))
             
             
         ####### ACCEPTOR ###########
@@ -128,8 +144,8 @@ class Agent:
             self.handle_accept(msg)
             
         ######### LEARNER #############
-        elif isinstance(msg, AcceptResponseMsg):
-            self.handle_accept_response(msg)
+        # elif isinstance(msg, AcceptResponseMsg):
+            # self.handle_accept_response(msg)
 
 
     def set_config(self, config):
@@ -165,25 +181,32 @@ class Agent:
         """
         Start a Paxos instance.
         """
-        proposal = self.create_proposal(instance)
-        if proposal.instance not in self.proposer_instances:
-            self.proposer_instances[proposal.instance] = {}
-        if proposal.number not in self.proposer_instances[proposal.instance]:
-            self.proposer_instances[proposal.instance][proposal.number] = \
-                                BasicPaxosProposerProtocol(self, proposal)
-        self.proposer_instances[proposal.instance][proposal.number].request = msg.value
-        self.proposer_instances[proposal.instance][proposal.number].handle_client_request(proposal)
-
+        #msg.proposal = {"type": "lock", "lock_id": 0, "client_id": 1}
+   
+        print("PRINTING MESSAGE:", msg.value)
+        CLIENT_PROP = msg.value
+        if (CLIENT_PROP["type"] == "lock" and self.lock_status_list[CLIENT_PROP["lock_id"]]==None)\
+        or(CLIENT_PROP["type"] == "unlock" and self.lock_status_list[CLIENT_PROP["lock_id"]] == CLIENT_PROP["client_id"]):
+            proposal = self.create_proposal(instance)
+            if proposal.instance not in self.proposer_instances:
+                self.proposer_instances[proposal.instance] = {}
+            if proposal.number not in self.proposer_instances[proposal.instance]:
+                self.proposer_instances[proposal.instance][proposal.number] = \
+                                    BasicPaxosProposerProtocol(self, proposal)
+            self.proposer_instances[proposal.instance][proposal.number].request = msg.value
+            self.proposer_instances[proposal.instance][proposal.number].handle_client_request(proposal)
+        else:
+            print("rejected!!!!!!!!!!!")
+            return
       
-    
+      
                 
         
 
     def handle_prepare_response(self, msg):
         self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_prepare_response(msg)
         
-    def handle_accept_response(self, msg):
-        self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_accept_response(msg)
+
 
 
     def create_proposal(self, instance=None):
@@ -211,7 +234,7 @@ class Agent:
 
         return proposal
         
-        
+
         
     #############  ACCEPTOR ###################
     def handle_prepare(self, msg):
@@ -235,10 +258,10 @@ class Agent:
         return self.acceptor_instances[instance_id]
         
         
-    ############# LEARNER  #######################
+    ############# LEARNER  #######################            
+            
     def handle_accept_response(self, msg):
-
- 
+    
 
         number = msg.proposal.number
         instance_id = msg.proposal.instance
@@ -249,6 +272,15 @@ class Agent:
         self.learner_instances[instance_id][number].handle_accept_response(msg)
 
         self.instance_sequence = msg.proposal.instance + 1
+        
+        
+        # if self.pending_proposals:
+            # print("HANDLING REJECT RESPONSES", self.pid)#[str(list(x.value)) for x in self.pending_proposals])
+            # for new_proposal in self.pending_proposals:
+                # # self.proposer_instances[msg.proposal.instance][msg.proposal.number].handle_accept_response(msg)
+                # if new_proposal.pid==self.pid:
+                    # self.handle_client_request(ClientRequestMsg(None, new_proposal.value))
+            # self.pending_proposals = []
 
 
     def record_result(self, instance, value):
@@ -262,9 +294,23 @@ class Agent:
         self.logger.log_result(self.pid, instance, value)
         self.logged_values.append("*** {} logging result for instance {}: {}".format(self.pid, instance, value))
 
+        
+        if value["type"] == "lock":
+            self.lock_status_list[value["lock_id"]] = value["client_id"]
+        else:
+            self.lock_status_list[value["lock_id"]] = None
+            
+
 
         print("FINISHED AND CONSENSUS REACHED")
+        print("CURRENT STATE:", self.lock_status_list)
+
+
+        to_print_status = "-".join([str(x) for x in self.lock_status_list])
+        self.states_list_print.append(to_print_status)
+        
         print(list(self.logged_values))
+        print(self.states_list_print)
 
         
         

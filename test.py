@@ -1,3 +1,23 @@
+
+##############################
+### TO DOs:
+
+### server -- client should be able to pass "lock(x)" and "unlock(x)" and the server should 
+        # - create system instance
+        # - lock/unlock --> parsed message 
+### add threads for concurrency 
+### kill nodes
+### remove artifacts --- message printing, mailbox, logger, etc
+### collapse some files & protocols
+### replace sim (integrate mailbox and logger into system) and test with lockserver
+### writeup
+
+
+
+
+
+
+
 from collections import namedtuple
 from multiprocessing import Queue
 import random
@@ -75,9 +95,15 @@ def test_paxos3():
 def test_server():
     time.sleep(2)
     
-    message = {"type": "lock", "lock_id": 0, "client_id": 1}
-    
+    message = {"type": "lock", "lock_id": 1, "client_id": 1}
+    message2 = {"type": "lock", "lock_id": 2, "client_id": 2}
+  #  message3 = {"type": "lock", "lock_id": 3, "client_id": 3}
+
     system.mailbox.send(0,ClientRequestMsg(None, message))
+    system.mailbox.send(0,ClientRequestMsg(None, message2))
+   # system.mailbox.send(2,ClientRequestMsg(None, message3))
+
+
 
 def test_multi_paxos():
     config = SystemConfig(3, 3, 3)
@@ -106,7 +132,7 @@ if __name__ == "__main__":
 	#system = DebugSystem(SystemConfig(1, 3, 1))
 	system.start()
 	#test_paxos(system)
-	test_paxos2()
+	test_server()
 	system.shutdown_agents()
 	system.logger.print_results()
 	# print(system.print_sent_messages())
