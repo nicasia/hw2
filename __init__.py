@@ -194,7 +194,7 @@ class Agent:
             
             self.valid_client_proposals[proposal.number] = msg.value
         else:
-            print("rejected!!!!!!!!!!!")
+            print("rejected!!!!!!!!!!!", msg.value)
             self.logger.log_failure(self.pid, msg.value, self.lock_status_list)
             return
       
